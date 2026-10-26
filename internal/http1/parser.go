@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+// ParseRequest reads a HTTP-Request and parses it into the http.Request-struct from the
+// standard go library. It returns an error if the request is malformed.
 func ParseRequest(reader *bufio.Reader) (*http.Request, error) {
 
 	request := &http.Request{}
@@ -18,6 +20,7 @@ func ParseRequest(reader *bufio.Reader) (*http.Request, error) {
 
 	if isPrefix == true || err != nil {
 		fmt.Println("parser.go: reading line1 failed")
+		return nil, err
 	}
 
 	str1 := string(line1)
@@ -26,41 +29,54 @@ func ParseRequest(reader *bufio.Reader) (*http.Request, error) {
 
 	if len(str1param) != 3 {
 		fmt.Println("parser.go: str1param is too long")
+		return nil, err
 	}
 
 	reqUrl, err := url.ParseRequestURI(str1param[1])
 
 	if err != nil {
 		fmt.Printf("parser.go: failed to parse url")
+		return nil, err
 	}
 
 	request.Method = str1param[0]
 	request.URL = reqUrl
 	request.Proto = str1param[2]
 
-	// Parse Line 2
+	// Parse Header
 
-	line2, isPrefix, err := reader.ReadLine()
+	request.Header = make(http.Header)
 
-	if isPrefix == true || err != nil {
-		fmt.Println("parser.go: reading line1 failed")
+	for {
+		line, isPrefix, err := reader.ReadLine()
+
+		if isPrefix || err != nil {
+			fmt.Println("parser.go: failed to read header-line")
+			return nil, err
+		}
+
+		if len(line) == 0 {
+			break
+		}
+
+		lines := strings.SplitN(string(line), ":", 2)
+
+		if len(lines) != 2 {
+			fmt.Printf("parser.go: header has an unusual length")
+			return nil, err
+		}
+
+		key := strings.TrimSpace(lines[0])
+		value := strings.TrimSpace(lines[1])
+
+		switch key {
+		case "Host":
+			request.Host = value
+			continue
+		}
+
+		request.Header.Add(key, value)
 	}
-
-	str2 := string(line2)
-
-	str2param := strings.Split(str2, " ")
-
-	if len(str2param) != 2 {
-		fmt.Printf("parser.go: str2param has an unexpected length")
-	}
-
-	request.Host = str2param[1]
-
-	// Loop
-
-	// TODO
-
-	// Done
 
 	return request, nil
 }
