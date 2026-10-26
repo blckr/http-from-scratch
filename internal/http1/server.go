@@ -2,9 +2,12 @@ package http1
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
+	"strings"
 )
 
 func ListenAndServe(addr string, handler http.Handler) error {
@@ -25,12 +28,6 @@ func ListenAndServe(addr string, handler http.Handler) error {
 			continue
 		}
 		go HandleConnection(conn, handler)
-
-		/*
-				Functions that might be useful:
-				* listener.Accept()
-			  * HandleConnection()
-		*/
 	}
 }
 
@@ -38,13 +35,31 @@ func HandleConnection(conn net.Conn, mux http.Handler) error {
 	defer conn.Close()
 
 	reader := bufio.NewReader(conn)
-	request, err := ParseRequest(reader)
-	if err != nil {
-		return err
+
+	for {
+
+		request, err := ParseRequest(reader)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			} else {
+				return err
+			}
+		}
+
+		response := NewResponse(conn)
+
+		mux.ServeHTTP(response, request)
+
+		if err := response.Flush(); err != nil {
+			return err
+		}
+
+		if strings.EqualFold(request.Header.Get("Connection"), "close") {
+			break
+		}
+
 	}
-
-	response := NewResponse(conn)
-
-	mux.ServeHTTP(response, request)
 	return nil
+
 }

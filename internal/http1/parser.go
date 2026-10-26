@@ -18,9 +18,11 @@ func ParseRequest(reader *bufio.Reader) (*http.Request, error) {
 
 	line1, isPrefix, err := reader.ReadLine()
 
-	if isPrefix == true || err != nil {
-		fmt.Println("parser.go: reading line1 failed")
+	if err != nil {
 		return nil, err
+	}
+	if isPrefix {
+		return nil, fmt.Errorf("request line too long")
 	}
 
 	str1 := string(line1)

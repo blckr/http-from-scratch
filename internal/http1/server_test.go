@@ -29,19 +29,19 @@ func TestHandleConnection(t *testing.T) {
 	}{
 		{
 			name:           "Standard 200 OK",
-			request:        "GET /hello HTTP/1.1\r\nHost: localhost:8080\r\n\r\n",
+			request:        "GET /hello HTTP/1.1\r\nHost: localhost:8080\r\nConnection: close\r\n\r\n",
 			expectedStatus: "HTTP/1.1 200 OK",
 			expectedBody:   "hello",
 		},
 		{
 			name:           "404 Route Not Found",
-			request:        "GET /unknown-path HTTP/1.1\r\nHost: localhost:8080\r\n\r\n",
+			request:        "GET /unknown-path HTTP/1.1\r\nHost: localhost:8080\r\nConnection: close\r\n\r\n",
 			expectedStatus: "HTTP/1.1 404 Not Found",
 			expectedBody:   "404 page not found\n",
 		},
 		{
 			name:           "202 Accepted with Header",
-			request:        "GET /custom HTTP/1.1\r\nHost: localhost:8080\r\n\r\n",
+			request:        "GET /custom HTTP/1.1\r\nHost: localhost:8080\r\nConnection: close\r\n\r\n",
 			expectedStatus: "HTTP/1.1 202 Accepted",
 			expectedHeaders: []string{
 				"X-Custom-Header: Golang",
