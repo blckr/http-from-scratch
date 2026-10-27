@@ -18,16 +18,10 @@ func ParseRequest(reader *bufio.Reader) (*http.Request, error) {
 
 	// Parse Line 1
 
-	line1, isPrefix, err := reader.ReadLine()
-
+	str1, err := checkCorrectSplit(reader)
 	if err != nil {
 		return nil, err
 	}
-	if isPrefix {
-		return nil, fmt.Errorf("request line too long")
-	}
-
-	str1 := string(line1)
 
 	str1param := strings.Split(str1, " ")
 
@@ -56,10 +50,9 @@ func ParseRequest(reader *bufio.Reader) (*http.Request, error) {
 	request.Header = make(http.Header)
 
 	for {
-		line, isPrefix, err := reader.ReadLine()
 
-		if isPrefix || err != nil {
-			fmt.Println("parser.go: failed to read header-line")
+		line, err := checkCorrectSplit(reader)
+		if err != nil {
 			return nil, err
 		}
 
@@ -73,8 +66,19 @@ func ParseRequest(reader *bufio.Reader) (*http.Request, error) {
 			return nil, fmt.Errorf("malformed header line")
 		}
 
-		key := strings.TrimSpace(lines[0])
-		value := strings.TrimSpace(lines[1])
+		rawKey := strings.TrimSpace(lines[0])
+		rawValue := strings.TrimSpace(lines[1])
+
+		if !isValidHeaderKey(rawKey) {
+			return nil, fmt.Errorf("invalid header key: %q", rawKey)
+		}
+
+		if strings.Contains(rawValue, "\t") {
+			return nil, fmt.Errorf("invalid character in header value")
+		}
+
+		key := strings.TrimSpace(rawKey)
+		value := strings.TrimSpace(rawValue)
 
 		switch key {
 		case "Host":
@@ -143,4 +147,20 @@ func checkCorrectSplit(reader *bufio.Reader) (string, error) {
 	}
 
 	return line, nil
+}
+
+// isValidHeaderKey checks if all the condigtions for a key in a header are fulfulled
+func isValidHeaderKey(key string) bool {
+	if len(key) == 0 {
+		return false
+	}
+	for i := 0; i < len(key); i++ {
+		c := key[i]
+		isAlpha := (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')
+		isDigit := c >= '0' && c <= '9'
+		if !isAlpha && !isDigit && c != '-' {
+			return false
+		}
+	}
+	return true
 }
