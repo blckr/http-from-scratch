@@ -30,8 +30,7 @@ func ParseRequest(reader *bufio.Reader) (*http.Request, error) {
 	str1param := strings.Split(str1, " ")
 
 	if len(str1param) != 3 {
-		fmt.Println("parser.go: str1param is too long")
-		return nil, err
+		return nil, fmt.Errorf("malformed request line: expected 3 parts, got %d", len(str1param))
 	}
 
 	reqUrl, err := url.ParseRequestURI(str1param[1])
@@ -64,8 +63,7 @@ func ParseRequest(reader *bufio.Reader) (*http.Request, error) {
 		lines := strings.SplitN(string(line), ":", 2)
 
 		if len(lines) != 2 {
-			fmt.Printf("parser.go: header has an unusual length")
-			return nil, err
+			return nil, fmt.Errorf("malformed header line")
 		}
 
 		key := strings.TrimSpace(lines[0])
