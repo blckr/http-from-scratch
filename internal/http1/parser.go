@@ -119,3 +119,28 @@ func isValidMethod(method string) bool {
 	}
 	return true
 }
+
+// checkCorrectSplit checks if a line ends correctly with \r\n and returns
+// everything before it. error is nil on success and returns a string, otherwise
+// error is not nil
+func checkCorrectSplit(reader *bufio.Reader) (string, error) {
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		if len(line) > 0 {
+			return "", fmt.Errorf("line truncated before CRNL")
+		}
+		return "", err
+	}
+
+	if !strings.HasSuffix(line, "\r\n") {
+		return "", fmt.Errorf("missing CR before NL")
+	}
+
+	line = line[:len(line)-2]
+
+	if strings.Contains(line, "\r") {
+		return "", fmt.Errorf("bare CR in line")
+	}
+
+	return line, nil
+}
