@@ -3,8 +3,10 @@ package http1
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -38,6 +40,11 @@ func ParseRequest(reader *bufio.Reader) (*http.Request, error) {
 	if err != nil {
 		fmt.Printf("parser.go: failed to parse url")
 		return nil, err
+	}
+
+	method := str1param[0]
+	if !isValidMethod(method) {
+		return nil, fmt.Errorf("invalid method: %q", method)
 	}
 
 	request.Method = str1param[0]
@@ -78,5 +85,37 @@ func ParseRequest(reader *bufio.Reader) (*http.Request, error) {
 		request.Header.Add(key, value)
 	}
 
+	// Set Content Length
+	clStr := request.Header.Get("Content-Length")
+
+	if clStr != "" {
+		cl, err := strconv.ParseInt(clStr, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		request.ContentLength = cl
+		request.Body = io.NopCloser(io.LimitReader(reader, cl))
+	} else {
+		request.Body = http.NoBody
+	}
+
 	return request, nil
+}
+
+// isValidMethod checks if a method only contains valid characters
+func isValidMethod(method string) bool {
+	if len(method) == 0 {
+		return false
+	}
+
+	for i := 0; i < len(method); i++ {
+		c := method[i]
+		isUpper := c >= 'A' && c <= 'Z'
+		isLower := c >= 'a' && c <= 'z'
+
+		if !isUpper && !isLower {
+			return false
+		}
+	}
+	return true
 }
