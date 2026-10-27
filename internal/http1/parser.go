@@ -2,6 +2,8 @@ package http1
 
 import (
 	"bufio"
+	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -9,6 +11,9 @@ import (
 	"strconv"
 	"strings"
 )
+
+const maxLineLength = 4096
+const maxHeaderCount = 100
 
 // ParseRequest reads a HTTP-Request and parses it into the http.Request-struct from the
 // standard go library. It returns an error if the request is malformed.
@@ -18,11 +23,10 @@ func ParseRequest(reader *bufio.Reader) (*http.Request, error) {
 
 	// Parse Line 1
 
-	str1, err := readSingleFromReader(reader)
+	str1, err := readSingleLineFromReader(reader)
 	if err != nil {
 		return nil, err
 	}
-
 	str1param := strings.Split(str1, " ")
 
 	if len(str1param) != 3 {
@@ -49,10 +53,19 @@ func ParseRequest(reader *bufio.Reader) (*http.Request, error) {
 
 	request.Header = make(http.Header)
 
+	currentHeaderCount := 0
 	for {
 
-		line, err := readSingleFromReader(reader)
+		currentHeaderCount++
+		if currentHeaderCount > maxHeaderCount {
+			return nil, fmt.Errorf("too many header")
+		}
+
+		line, err := readSingleLineFromReader(reader)
 		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil, fmt.Errorf("headers truncated by EOF")
+			}
 			return nil, err
 		}
 
@@ -89,16 +102,36 @@ func ParseRequest(reader *bufio.Reader) (*http.Request, error) {
 		request.Header.Add(key, value)
 	}
 
-	// Set Content Length
-	clStr := request.Header.Get("Content-Length")
-
-	if clStr != "" {
-		cl, err := strconv.ParseInt(clStr, 10, 64)
+	te := request.Header.Get("Transfer-Encoding")
+	if strings.EqualFold(strings.TrimSpace(te), "chunked") {
+		data, err := parseChunkedBody(reader)
 		if err != nil {
 			return nil, err
 		}
+		request.ContentLength = int64(len(data))
+		request.Body = io.NopCloser(bytes.NewReader(data))
+
+	} else if clValues := request.Header.Values("Content-Length"); len(clValues) > 0 {
+		firstVal := strings.TrimSpace(clValues[0])
+
+		for _, v := range clValues[1:] {
+			if strings.TrimSpace(v) != firstVal {
+				return nil, fmt.Errorf("conflicting Content-Length values: %v", clValues)
+			}
+		}
+
+		cl, err := strconv.ParseInt(firstVal, 10, 64)
+		if err != nil || cl < 0 {
+			return nil, fmt.Errorf("invalid Content-Length: %q", firstVal)
+		}
+
+		buf := make([]byte, cl)
+		if _, err := io.ReadFull(reader, buf); err != nil {
+			return nil, fmt.Errorf("reading Content-Length body: %w", err)
+		}
+
 		request.ContentLength = cl
-		request.Body = io.NopCloser(io.LimitReader(reader, cl))
+		request.Body = io.NopCloser(bytes.NewReader(buf))
 	} else {
 		request.Body = http.NoBody
 	}
@@ -124,16 +157,20 @@ func isValidMethod(method string) bool {
 	return true
 }
 
-// readSingleFromReader checks if a line ends correctly with \r\n and returns
+// readSingleLineFromReader checks if a line ends correctly with \r\n and returns
 // everything before it. error is nil on success and returns a string, otherwise
 // error is not nil
-func readSingleFromReader(reader *bufio.Reader) (string, error) {
+func readSingleLineFromReader(reader *bufio.Reader) (string, error) {
 	line, err := reader.ReadString('\n')
 	if err != nil {
 		if len(line) > 0 {
 			return "", fmt.Errorf("line truncated before CRNL")
 		}
 		return "", err
+	}
+
+	if len(line) > maxLineLength {
+		return "", fmt.Errorf("line too long: %d bytes", len(line))
 	}
 
 	if !strings.HasSuffix(line, "\r\n") {
@@ -163,4 +200,52 @@ func isValidHeaderKey(key string) bool {
 		}
 	}
 	return true
+}
+
+// parseChunkedBody continues reading lines from the body until the chunk size is 0
+// and returnes the data. error is nil on success.
+func parseChunkedBody(reader *bufio.Reader) ([]byte, error) {
+	var body bytes.Buffer
+
+	for {
+		line, err := readSingleLineFromReader(reader)
+		if err != nil {
+			return nil, fmt.Errorf("reading chunk size: %v", err)
+		}
+
+		sizeStr := strings.TrimSpace(strings.Split(line, ";")[0])
+		chunkSize, err := strconv.ParseInt(sizeStr, 16, 64)
+		if err != nil || chunkSize < 0 {
+			return nil, fmt.Errorf("invalid chunk size: %q", sizeStr)
+		}
+
+		if chunkSize == 0 {
+			for {
+				trailer, err := readSingleLineFromReader(reader)
+				if err != nil {
+					return nil, fmt.Errorf("reading trailer: %v", err)
+				}
+				if len(trailer) == 0 {
+					break
+				}
+			}
+			break
+		}
+
+		chunkData := make([]byte, chunkSize)
+		if _, err := io.ReadFull(reader, chunkData); err != nil {
+			return nil, fmt.Errorf("truncated chunk data: %v", err)
+		}
+		body.Write(chunkData)
+
+		crnl := make([]byte, 2)
+		if _, err := io.ReadFull(reader, crnl); err != nil {
+			return nil, fmt.Errorf("reading chunk CRNL: %v", err)
+		}
+		if crnl[0] != '\r' || crnl[1] != '\n' {
+			return nil, fmt.Errorf("malformed chunk: missing CRNL")
+		}
+	}
+
+	return body.Bytes(), nil
 }
