@@ -18,7 +18,7 @@ func ParseRequest(reader *bufio.Reader) (*http.Request, error) {
 
 	// Parse Line 1
 
-	str1, err := checkCorrectSplit(reader)
+	str1, err := readSingleFromReader(reader)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +51,7 @@ func ParseRequest(reader *bufio.Reader) (*http.Request, error) {
 
 	for {
 
-		line, err := checkCorrectSplit(reader)
+		line, err := readSingleFromReader(reader)
 		if err != nil {
 			return nil, err
 		}
@@ -124,10 +124,10 @@ func isValidMethod(method string) bool {
 	return true
 }
 
-// checkCorrectSplit checks if a line ends correctly with \r\n and returns
+// readSingleFromReader checks if a line ends correctly with \r\n and returns
 // everything before it. error is nil on success and returns a string, otherwise
 // error is not nil
-func checkCorrectSplit(reader *bufio.Reader) (string, error) {
+func readSingleFromReader(reader *bufio.Reader) (string, error) {
 	line, err := reader.ReadString('\n')
 	if err != nil {
 		if len(line) > 0 {
