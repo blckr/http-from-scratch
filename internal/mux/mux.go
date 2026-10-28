@@ -1,18 +1,19 @@
 package mux
 
 import (
+	"context"
 	"net/http"
 	"sort"
 	"strings"
 )
 
 type SimpleMux struct {
-	routes map[string]map[string]http.HandlerFunc
+	root *node
 }
 
 func NewSimpleMux() *SimpleMux {
 	return &SimpleMux{
-		routes: make(map[string]map[string]http.HandlerFunc),
+		root: newNode(""),
 	}
 }
 
@@ -27,57 +28,44 @@ func (m *SimpleMux) HandleFunc(pattern string, handler http.HandlerFunc) {
 		path = parts[1]
 	}
 
-	if !strings.HasPrefix(path, "/") {
-		path = "/" + path
-	}
-
-	if m.routes[path] == nil {
-		m.routes[path] = make(map[string]http.HandlerFunc)
-	}
-
-	// Empty means catch all
-	m.routes[path][method] = handler
+	segments := splitPath(path)
+	m.root.insert(method, segments, handler)
 }
 
 func (m *SimpleMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	path := r.URL.Path
 
-	if methods, found := m.routes[path]; found {
-		m.dispatchMethod(w, r, methods)
+	segments := splitPath(r.URL.Path)
+	params := make(map[string]string)
+
+	matchedNode := m.root.search(segments, params)
+
+	if matchedNode == nil || len(matchedNode.handlers) == 0 {
+		http.NotFound(w, r)
 		return
 	}
 
-	if !strings.HasSuffix(path, "/") {
-		if _, found := m.routes[path+"/"]; found {
-			redirectURL(w, r, path+"/")
-			return
-		}
-	}
+	ctx := context.WithValue(r.Context(), paramsKey, params)
+	reqWithContext := r.WithContext(ctx)
 
-	if strings.HasSuffix(path, "/") && path != "/" {
-		pathWithoutSlash := strings.TrimSuffix(path, "/")
-		if _, found := m.routes[pathWithoutSlash]; found {
-			redirectURL(w, r, pathWithoutSlash)
-			return
-		}
-	}
-
-	http.NotFound(w, r)
+	m.dispatchMethod(w, reqWithContext, matchedNode.handlers)
 }
 
 // Checks inside a Path if the Method exists
 func (m *SimpleMux) dispatchMethod(w http.ResponseWriter, r *http.Request, methods map[string]http.HandlerFunc) {
 
+	// Method found
 	if handler, ok := methods[r.Method]; ok {
 		handler(w, r)
 		return
 	}
 
+	// Catch ALL
 	if handler, ok := methods[""]; ok {
 		handler(w, r)
 		return
 	}
 
+	// Write not allowed back in header
 	allowed := make([]string, 0, len(methods))
 	for method := range methods {
 		if method != "" {
@@ -90,6 +78,7 @@ func (m *SimpleMux) dispatchMethod(w http.ResponseWriter, r *http.Request, metho
 	http.Error(w, "405 Method Not Allowed", http.StatusMethodNotAllowed)
 }
 
+// redirectURL
 func redirectURL(w http.ResponseWriter, r *http.Request, targetPath string) {
 	target := targetPath
 	if r.URL.RawQuery != "" {
