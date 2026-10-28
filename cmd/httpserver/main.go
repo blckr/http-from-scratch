@@ -25,7 +25,7 @@ func newMux() {
 
 	mux := mux.NewSimpleMux()
 
-	mux.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /test", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "The test is successfull")
 	})
 
