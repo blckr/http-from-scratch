@@ -2,32 +2,24 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"net/http"
+
 	"httpServer/internal/http1"
 	"httpServer/internal/mux"
-	"net/http"
 )
 
-const addr = ":8080"
-
 func main() {
-	http.HandleFunc("/hello", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "hello")
+	m := mux.NewSimpleMux()
+
+	m.Use(mux.Logger)
+	m.Use(mux.Recoverer)
+
+	m.HandleFunc("GET /test", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintln(w, "The test is successfull")
 	})
 
-	newMux()
-
-	if err := http1.ListenAndServe(addr, nil); err != nil {
-		panic(err)
+	if err := http1.ListenAndServe(":8088", m); err != nil {
+		log.Fatal(err)
 	}
-}
-
-func newMux() {
-
-	mux := mux.NewSimpleMux()
-
-	mux.HandleFunc("GET /test", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "The test is successfull")
-	})
-
-	http.ListenAndServe(":8088", mux)
 }

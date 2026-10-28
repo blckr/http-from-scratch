@@ -7,8 +7,11 @@ import (
 	"strings"
 )
 
+type Middleware func(http.Handler) http.Handler
+
 type SimpleMux struct {
-	root *node
+	root        *node
+	middlewares []Middleware
 }
 
 func NewSimpleMux() *SimpleMux {
@@ -34,20 +37,34 @@ func (m *SimpleMux) HandleFunc(pattern string, handler http.HandlerFunc) {
 
 func (m *SimpleMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
-	segments := splitPath(r.URL.Path)
-	params := make(map[string]string)
+	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		segments := splitPath(r.URL.Path)
+		params := make(map[string]string)
 
-	matchedNode := m.root.search(segments, params)
+		matchedNode := m.root.search(segments, params)
 
-	if matchedNode == nil || len(matchedNode.handlers) == 0 {
-		http.NotFound(w, r)
-		return
+		if matchedNode == nil || len(matchedNode.handlers) == 0 {
+			http.NotFound(w, r)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), paramsKey, params)
+		reqWithContext := r.WithContext(ctx)
+
+		m.dispatchMethod(w, reqWithContext, matchedNode.handlers)
+	})
+
+	for i := len(m.middlewares) - 1; i >= 0; i-- {
+		handler = m.middlewares[i](handler)
 	}
 
-	ctx := context.WithValue(r.Context(), paramsKey, params)
-	reqWithContext := r.WithContext(ctx)
+	handler.ServeHTTP(w, r)
 
-	m.dispatchMethod(w, reqWithContext, matchedNode.handlers)
+}
+
+// Use registers new middleware that wraps around the http-request
+func (m *SimpleMux) Use(mws ...Middleware) {
+	m.middlewares = append(m.middlewares, mws...)
 }
 
 // Checks inside a Path if the Method exists

@@ -1,0 +1,6 @@
+[language-server.gopls.config.ui.codelenses]
+gc_details = false
+
+[language-server.gopls.config.ui.diagnostic.annotations]
+inline = false
+escape = false
