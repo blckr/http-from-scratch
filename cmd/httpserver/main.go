@@ -19,7 +19,7 @@ func main() {
 		_, _ = fmt.Fprintln(w, "The test is successfull")
 	})
 
-	if err := http1.ListenAndServe(":8088", m); err != nil {
+	if err := http1.ListenAndServe(":8080", m); err != nil {
 		log.Fatal(err)
 	}
 }

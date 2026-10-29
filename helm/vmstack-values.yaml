@@ -1,0 +1,15 @@
+syncJob:
+  enabled: false
+
+defaultDashboards:
+  enabled: true
+
+grafana:
+  enabled: true
+  adminPassword: admin
+
+prometheus-node-exporter:
+  enabled: false
+
+kube-state-metrics:
+  enabled: true

@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: http-from-scratch
+  labels:
+    app: http-from-scratch
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: http-from-scratch
+  template:
+    metadata:
+      labels:
+        app: http-from-scratch
+    spec:
+      containers:
+      - name: server
+        image: http-from-scratch:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8080

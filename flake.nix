@@ -47,6 +47,13 @@
               golangci-lint-langserver
 
               gcc
+
+              kind
+              kubectl
+              kubernetes-helm
+
+              colima
+              docker-client
             ];
           };
         }
