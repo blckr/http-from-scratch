@@ -44,14 +44,14 @@ Content-Length: 235
 Until this point, it is fine to use the http.DefaultServeMux.
 
 
-# Deployment Guide
+## Deployment
 
-## Prerequisites
+### Prerequisites
 
 * Docker Desktop with Kubernetes enabled (`kubectl config use-context docker-desktop`)
 * Nix with active flakes support
 
-## Initial Setup
+### Initial Setup
 
 ```bash
 # 1. Enter the reproducible environment
@@ -64,7 +64,7 @@ make setup
 curl http://localhost/test
 ```
 
-## Development & Re-deployment
+### Development & Re-deployment
 
 Run this after making changes to the Go source code or Kubernetes manifests:
 
@@ -74,7 +74,7 @@ make deploy-local
 
 *Builds the Docker image, applies `k8s/` resources, and triggers a rolling restart of the pod.*
 
-## Accessing Monitoring
+### Accessing Monitoring
 
 ```bash
 # Grafana (Credentials: admin / admin)
