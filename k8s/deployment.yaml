@@ -17,7 +17,7 @@ spec:
       containers:
       - name: server
         image: http-from-scratch:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         ports:
         - name: http
           containerPort: 8080

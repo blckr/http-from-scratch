@@ -36,25 +36,29 @@
         { pkgs }:
         {
           default = pkgs.mkShellNoCC {
-            packages = with pkgs; [
-              # go (version is specified by overlay)
-              go
+            packages =
+              with pkgs;
+              [
+                go
 
-              gotools
-              golangci-lint
-              gopls
-              delve
-              golangci-lint-langserver
+                gotools
+                golangci-lint
+                gopls
+                delve
+                golangci-lint-langserver
 
-              gcc
+                kind
+                kubectl
+                kubernetes-helm
 
-              kind
-              kubectl
-              kubernetes-helm
+                colima
+                docker-client
+              ]
+              ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
+                apple-sdk_14
+              ];
 
-              colima
-              docker-client
-            ];
+            CGO_ENABLED = "0";
           };
         }
       );
