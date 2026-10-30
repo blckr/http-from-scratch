@@ -2,14 +2,10 @@ apiVersion: operator.victoriametrics.com/v1beta1
 kind: VMServiceScrape
 metadata:
   name: http-from-scratch
-  namespace: default
-  labels:
-    app: http-from-scratch
 spec:
   selector:
     matchLabels:
       app: http-from-scratch
   endpoints:
     - port: http
-      path: /metrics
-      interval: 10s
+      path: /app-stats

@@ -16,8 +16,8 @@ spec:
     spec:
       containers:
       - name: server
-        image: http-from-scratch:latest
-        imagePullPolicy: Always
+        image: http-from-scratch:v2
+        imagePullPolicy: Never
         ports:
         - name: http
           containerPort: 8080

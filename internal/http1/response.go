@@ -14,6 +14,7 @@ type Response struct {
 	header        http.Header
 	statusCode    int
 	headerWritten bool
+	bytesWritten  int
 
 	body bytes.Buffer
 }
@@ -31,7 +32,9 @@ func (r *Response) Header() http.Header {
 
 // Write adds data to the response
 func (r *Response) Write(data []byte) (n int, err error) {
-	return r.body.Write(data)
+	n, err = r.body.Write(data)
+	r.bytesWritten += n
+	return n, err
 }
 
 // WriteHeader takes a status code and writes a corresponding header in the response
@@ -43,8 +46,15 @@ func (r *Response) WriteHeader(statusCode int) {
 	r.headerWritten = true
 }
 
-func (r *Response) Flush() error {
+func (r *Response) StatusCode() int {
+	return r.statusCode
+}
 
+func (r *Response) BytesWritten() int {
+	return r.bytesWritten
+}
+
+func (r *Response) Flush() error {
 	if r.header.Get("Content-Length") == "" {
 		r.header.Set("Content-Length", strconv.Itoa(r.body.Len()))
 	}
